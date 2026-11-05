@@ -79,15 +79,22 @@ h2 em{font-style:normal;color:var(--orange)}
 .hero-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px 28px}
 .hero-phone-row{display:none}
 
-/* 2. the pour: cup tips onto the counter under a warm spot */
-.pour{position:relative;display:grid;grid-template-columns:minmax(0,4fr) minmax(0,7fr);align-items:center;gap:clamp(16px,3vw,48px);max-width:1440px;margin:0 auto;padding:clamp(24px,4vw,56px) var(--gut) clamp(32px,5vw,72px);border-top:1px solid var(--line)}
-.pour::before{content:"";position:absolute;right:6%;top:8%;width:62%;height:90%;z-index:0;pointer-events:none;background:radial-gradient(50% 46% at 52% 62%,rgba(255,150,80,.16),rgba(255,104,29,.05) 55%,rgba(11,9,8,0) 75%)}
-.pour-copy{position:relative;z-index:1;padding-left:max(0px,calc((min(100vw,1440px) - var(--max)) / 2))}
+/* 2. the pour: scroll tips the cup, its sauce draws the drizzle across the counter */
+.pour{position:relative;border-top:1px solid var(--line)}
+.pour-stage{position:relative;height:clamp(640px,calc(100svh - var(--head)),880px);max-width:1440px;margin:0 auto;overflow:hidden}
+.pour.scrub{height:calc(100svh - var(--head) + 120svh)}
+.pour.scrub .pour-stage{position:sticky;top:var(--head);height:calc(100svh - var(--head));min-height:560px}
+/* warm spot on the counter and a faint counter edge for the drizzle to land on */
+.pour-stage::before{content:"";position:absolute;left:0;right:0;top:52%;bottom:0;pointer-events:none;background:radial-gradient(60% 70% at 62% 40%,rgba(255,140,70,.13),rgba(255,104,29,.04) 50%,rgba(11,9,8,0) 75%)}
+.pour-stage::after{display:none}
+.pour-copy{position:absolute;z-index:3;top:14%;left:max(var(--gut),calc((min(100vw,1440px) - var(--max)) / 2 + var(--gut)));max-width:min(30em,46%)}
 .pour-copy .eyebrow{margin-bottom:14px}
 .pour-copy h2{margin-bottom:18px}
 .pour-copy p:last-child{font-size:19px;color:#DCD2C3;max-width:20em}
-.seam{position:relative;z-index:1;pointer-events:none}
-.cup{width:100%;max-width:900px;height:auto;margin-left:auto}
+.seam{position:absolute;z-index:1;right:max(8px,calc(var(--gut) - 40px));bottom:5%;width:min(82%,1180px);aspect-ratio:1270/692;pointer-events:none}
+.drizzle{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.mk{fill:none;stroke:#fff;stroke-width:48;stroke-linecap:round;stroke-linejoin:round}
+.cup{position:absolute;left:62.205%;top:.578%;width:37.323%;height:88.439%}
 
 /* 3. what looks good: tight mosaic, food edge to edge */
 .good{padding:clamp(48px,7vw,104px) 0 clamp(48px,7vw,96px);background:var(--black)}
@@ -222,6 +229,52 @@ input[aria-invalid=true]{border-color:#FF6B5E;background:#1E0E0B}
 .foot a{color:var(--cream)}
 .foot-name{font:900 38px/1 var(--display);color:var(--cream);margin-bottom:8px}
 
+
+/* ---------- motion (all of it switched off for reduced motion below) ---------- */
+@keyframes rise{from{opacity:0;transform:translateY(.45em)}}
+@keyframes fadeup{from{opacity:0;transform:translateY(16px)}}
+@keyframes settle{from{transform:scale(1.12)}}
+@keyframes tick{to{transform:translateX(-50%)}}
+@keyframes flicker{0%{filter:brightness(.25) saturate(.6)}8%{filter:brightness(.9)}12%{filter:brightness(.35)}20%{filter:brightness(1.05)}26%{filter:brightness(.6)}40%,100%{filter:brightness(1) contrast(1.05) saturate(1.1)}}
+@keyframes pop{40%{transform:scale(1.35)}}
+@keyframes rowin{from{opacity:0;transform:translateX(-10px)}}
+@keyframes breathe{from{opacity:.55}to{opacity:1}}
+.js .hero h1 span{animation:rise 1.1s var(--ease) both}
+.js .hero h1 span:last-child{animation-delay:.12s}
+.js .hero-sign .eyebrow{animation:fadeup .9s var(--ease) .05s both}
+.js .hero-line{animation:fadeup .9s var(--ease) .3s both}
+.js .hero-actions,.js .hero-phone-row{animation:fadeup .9s var(--ease) .42s both}
+.js .hero-photo img{animation:settle 2.4s var(--ease) both}
+.hero-photo,.hero-sign{will-change:transform}
+/* section headings tip up into place */
+[data-reveal] h2{transition:transform 1s var(--ease);transform-origin:0 100%}
+[data-reveal]:not(.is-visible) h2{transform:translateY(.3em) rotate(2deg)}
+/* dish tiles wipe up from the counter, the photo settles inside */
+.dishes .dish[data-reveal]{opacity:1;transform:none}
+.dishes .dish::after{content:"";position:absolute;inset:-1px;z-index:4;background:var(--black);transform-origin:50% 0;transition:transform 1.1s var(--ease);transition-delay:var(--d,0s);pointer-events:none}
+.dishes .dish.is-visible::after{transform:scaleY(0)}
+.dish figure{inset:-36px 0;transform:translateY(var(--py,0px));will-change:transform}
+.dish figure img{transform:scale(1.14);transition:transform 1.4s var(--ease)}
+.dish.is-visible figure img{transform:scale(1)}
+.dish.is-visible:hover figure img{transform:scale(1.05)}
+.no-js .dishes .dish::after{display:none}
+.no-js .dish figure img{transform:none}
+/* menu rows slide in when a category opens */
+.js .menu-panel:not([data-off]) li{animation:rowin .45s var(--ease) both;animation-delay:calc(var(--i,0) * 22ms)}
+/* the sign flickers on once */
+.store.lit img{animation:flicker 1.3s linear both}
+/* small things */
+.btn span[aria-hidden],.text-link span[aria-hidden]{display:inline-block;transition:transform .2s var(--ease)}
+.btn:hover span[aria-hidden],.text-link:hover span[aria-hidden]{transform:translate(3px,-3px)}
+.add[aria-pressed="true"]::before{animation:pop .35s var(--ease)}
+.last-call::before{animation:breathe 4.5s ease-in-out infinite alternate}
+/* ticker of dish names */
+.ticker{overflow:hidden;background:var(--black);border-top:1px solid var(--line);padding:22px 0}
+.ticker-row{display:flex;width:max-content;animation:tick 48s linear infinite}
+.ticker span{font:900 clamp(36px,4.6vw,64px)/1 var(--display);text-transform:uppercase;white-space:nowrap;padding-right:.55em;color:var(--cream)}
+.ticker span::after{content:"";display:inline-block;width:.3em;height:.3em;margin-left:.55em;border-radius:50%;background:var(--orange);vertical-align:.25em}
+.ticker span:nth-child(even){color:transparent;-webkit-text-stroke:1.5px #6B5F53}
+
 /* reveal (house standard) */
 [data-reveal]{opacity:0;transform:translateY(22px);transition:opacity .8s var(--ease),transform .8s var(--ease);transition-delay:var(--d,0s)}
 [data-reveal].is-visible{opacity:1;transform:none}
@@ -249,9 +302,12 @@ input[aria-invalid=true]{border-color:#FF6B5E;background:#1E0E0B}
   .hero-sign .hero-actions{display:none}
   .hero-phone-row{display:flex;align-items:center;justify-content:space-between;gap:10px 20px;flex-wrap:wrap;padding:14px var(--gut) 22px}
   .hero-phone-row .btn{flex:0 1 380px}
-  .pour{grid-template-columns:1fr;padding-top:28px;padding-bottom:12px;gap:0}
-  .pour::before{right:0;top:auto;bottom:0;width:100%;height:70%}
-  .pour-copy{padding-left:0}
+  .pour-stage{height:max(640px,calc(100svh - var(--head)))}
+  .pour-copy{top:5%;left:var(--gut);right:var(--gut);max-width:none}
+  .pour-copy p:last-child{font-size:17px}
+  .seam{right:4.5vw;bottom:9%;width:150vw;max-width:none}
+  .pour-stage::after{top:76%}
+  .pour-stage::before{top:60%}
   .menu-head{grid-template-columns:1fr}
   .menu-body{grid-template-columns:1fr;gap:20px}
   .cat-index{display:none}
@@ -294,4 +350,11 @@ input[aria-invalid=true]{border-color:#FF6B5E;background:#1E0E0B}
   html{scroll-behavior:auto}
   [data-reveal]{opacity:1;transform:none;transition:none}
   .btn,.dish figure img,.menu-items li{transition:none}
+  *,*::before,*::after{animation:none!important}
+  [data-reveal] h2,[data-reveal]:not(.is-visible) h2{transform:none;transition:none}
+  .dishes .dish::after{display:none}
+  .dish figure{transform:none}
+  .dish figure img,.dish.is-visible figure img,.dish.is-visible:hover figure img{transform:none}
+  .ticker-row{flex-wrap:wrap;width:auto;justify-content:center}
+  .ticker-row span:nth-child(n+8){display:none}
 }

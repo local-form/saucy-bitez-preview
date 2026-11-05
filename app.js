@@ -115,25 +115,53 @@
   });
   render();
 
-  /* ---------- the seam cup: tips once when it comes into view; still for reduced motion or slow links ---------- */
-  const cup = $('.cup');
-  if (cup && !reduce && 'IntersectionObserver' in window) {
-    const c = navigator.connection || {}, slow = c.saveData || /(^|-)2g$/.test(c.effectiveType || '');
-    if (!slow) {
-      const still = cup.getAttribute('src');
-      cup.src = cup.dataset.start;      // wait on the first frame until it is in view
-      let blob = null, started = false, load = null;
-      const fetchAnim = () => load || (load = fetch(cup.dataset.anim).then(r => r.ok ? r.blob() : Promise.reject()).then(b => (blob = URL.createObjectURL(b))).catch(() => null));
-      const near = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { near.disconnect(); fetchAnim(); } }, { rootMargin: '600px 0px' });
-      const afterLoad = f => document.readyState === 'complete' ? f() : addEventListener('load', f, { once: true });   // never compete with the hero photo
-      afterLoad(() => near.observe(cup));
-      const play = () => { if (started) return; started = true; fetchAnim();
-        const timer = setTimeout(() => { if (!blob) cup.src = still; }, 5000);
-        load.then(u => { clearTimeout(timer); cup.src = u || still; cup.classList.add('played'); });
-      };
-      const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); play(); } }, { threshold: 0.6 });
-      afterLoad(() => io.observe(cup));
+  /* ---------- the pour: scroll tips the cup (36 pre-rendered frames), the drizzle is uncovered along its own path ---------- */
+  const pour = $('#pour'), cup = $('.cup');
+  const conn = navigator.connection || {}, slow = conn.saveData || /(^|-)2g$/.test(conn.effectiveType || '');
+  const afterLoad = f => document.readyState === 'complete' ? f() : addEventListener('load', f, { once: true });   // never compete with the hero photo
+  const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+  let drawPour = () => {};
+  if (pour && cup && !reduce && !slow && 'IntersectionObserver' in window) {
+    const N = +cup.dataset.n, url = i => cup.dataset.frames + String(i).padStart(2, '0') + '.webp';
+    const [mw, mo] = $$('.mk', pour), ready = [true];
+    let cur = 0;
+    const setDraw = (pth, d) => { pth.style.strokeDasharray = '1 1'; pth.style.strokeDashoffset = (1 - d).toFixed(4); };
+    const show = i => { let j = i; while (j > 0 && !ready[j]) j--; if (j !== cur) { cur = j; cup.src = url(j); } };
+    pour.classList.add('scrub');
+    cup.src = url(0); setDraw(mo, 0); setDraw(mw, 0);
+    const near = new IntersectionObserver(es => {
+      if (!es.some(e => e.isIntersecting)) return; near.disconnect();
+      for (let i = 1; i < N; i++) { const im = new Image(); im.src = url(i); (im.decode ? im.decode() : Promise.resolve()).then(() => { ready[i] = true; drawPour(); }, () => {}); }
+    }, { rootMargin: '900px 0px' });
+    afterLoad(() => near.observe(pour));
+    drawPour = () => {
+      const r = pour.getBoundingClientRect(), vh = innerHeight, run = r.height - (vh - 60) + vh * 0.35;
+      const p = clamp((vh * 0.35 - r.top) / run);
+      show(Math.round(clamp(p / 0.5) * (N - 1)));
+      setDraw(mo, clamp((p - 0.26) / 0.52)); setDraw(mw, clamp((p - 0.5) / 0.44));
+    };
+    addEventListener('resize', drawPour);
+  }
+
+  /* ---------- scroll motion: hero parallax, photos drifting inside their tiles ---------- */
+  const heroPhoto = $('.hero-photo'), heroSign = $('.hero-sign'), tiles = $$('.dish figure');
+  let ticking = false;
+  const onScroll = () => {
+    ticking = false; const y = scrollY, vh = innerHeight;
+    if (!reduce) {
+      if (y < vh * 1.2) { if (heroPhoto) heroPhoto.style.transform = `translate3d(0,${(y * 0.22).toFixed(1)}px,0)`; if (heroSign) heroSign.style.transform = `translate3d(0,${(y * 0.07).toFixed(1)}px,0)`; }
+      tiles.forEach(f => { const r = f.parentElement.getBoundingClientRect(); if (r.bottom < 0 || r.top > vh) return; const k = (r.top + r.height / 2 - vh / 2) / vh; f.style.setProperty('--py', (clamp(k, -1, 1) * -30).toFixed(1) + 'px'); });
     }
+    drawPour();
+  };
+  addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
+  onScroll();
+
+  /* ---------- the storefront sign flickers on once ---------- */
+  const store = $('.store');
+  if (store && !reduce && 'IntersectionObserver' in window) {
+    const so = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { so.disconnect(); store.classList.add('lit'); } }, { threshold: 0.35 });
+    so.observe(store);
   }
 
   /* ---------- reveals (house standard) ---------- */
