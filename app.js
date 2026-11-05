@@ -115,32 +115,79 @@
   });
   render();
 
-  /* ---------- the pour: scroll tips the cup (36 pre-rendered frames), the drizzle is uncovered along its own path ---------- */
-  const pour = $('#pour'), cup = $('.cup');
+  /* ---------- the pour: scroll tips the cup (36 frames from the front); a straight stream and a gooey pool are drawn in SVG ---------- */
+  const pour = $('#pour'), cup = $('.cup'), sauce = $('.sauce');
   const conn = navigator.connection || {}, slow = conn.saveData || /(^|-)2g$/.test(conn.effectiveType || '');
   const afterLoad = f => document.readyState === 'complete' ? f() : addEventListener('load', f, { once: true });   // never compete with the hero photo
   const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+  const ss = (v, a, b) => { const t = clamp((v - a) / (b - a)); return t * t * (3 - 2 * t); };
   let drawPour = () => {};
-  if (pour && cup && !reduce && !slow && 'IntersectionObserver' in window) {
-    const N = +cup.dataset.n, url = i => cup.dataset.frames + String(i).padStart(2, '0') + '.webp';
-    const [mw, mo] = $$('.mk', pour), ready = [true];
-    let cur = 0;
-    const setDraw = (pth, d) => { pth.style.strokeDasharray = '1 1'; pth.style.strokeDashoffset = (1 - d).toFixed(4); };
+  if (pour && cup && sauce) {
+    const N = +cup.dataset.n, url = i => cup.dataset.frames + String(i).padStart(2, '0') + '.webp', LIPS = JSON.parse(cup.dataset.lips);
+    const stage = pour.querySelector('.pour-stage'), stream = $('.stream', sauce), blobs = $('.blobs', sauce), gloss = $('.gloss', sauce), shadow = $('.pool-shadow', sauce), splash = $('.splash', sauce);
+    const ready = [true]; let cur = 0, L = null;
+    let seed = 3; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
     const show = i => { let j = i; while (j > 0 && !ready[j]) j--; if (j !== cur) { cur = j; cup.src = url(j); } };
-    pour.classList.add('scrub');
-    cup.src = url(0); setDraw(mo, 0); setDraw(mw, 0);
-    const near = new IntersectionObserver(es => {
-      if (!es.some(e => e.isIntersecting)) return; near.disconnect();
-      for (let i = 1; i < N; i++) { const im = new Image(); im.src = url(i); (im.decode ? im.decode() : Promise.resolve()).then(() => { ready[i] = true; drawPour(); }, () => {}); }
-    }, { rootMargin: '900px 0px' });
-    afterLoad(() => near.observe(pour));
-    drawPour = () => {
-      const r = pour.getBoundingClientRect(), vh = innerHeight, run = r.height - (vh - 60) + vh * 0.35;
-      const p = clamp((vh * 0.35 - r.top) / run);
-      show(Math.round(clamp(p / 0.5) * (N - 1)));
-      setDraw(mo, clamp((p - 0.26) / 0.52)); setDraw(mw, clamp((p - 0.5) / 0.44));
+    const layout = () => {           // everything in stage pixels
+      const st = stage.getBoundingClientRect(), cr = cup.getBoundingClientRect();
+      const W = st.width, H = st.height, cx = cr.left - st.left, cy = cr.top - st.top, cw = cr.width, ch = cr.height;
+      sauce.setAttribute('viewBox', `0 0 ${W.toFixed(0)} ${H.toFixed(0)}`);
+      const py = Math.min(H - 36, cy + ch + Math.max(90, H * 0.2)), w = clamp(cw * 0.075, 12, 38), left = Math.max(W * 0.1, 16);
+      seed = 3; const bl = [];
+      const span = (cx + cw * 0.96) - left;
+      for (let i = 0; i < 26; i++) { const u = i / 25, x = cx + cw * 0.96 - span * Math.pow(u, 1.15); bl.push({ x, r: w * (2.2 + 1.4 * rnd()) * (1 - 0.45 * u), t: 0.02 + 0.86 * u, dy: (rnd() - 0.5) * w * 1.1 }); }
+      bl.push({ x: cx + cw * 0.96 - w * 0.6, r: w * 3.4, t: 0, dy: -w * 0.5, tall: 1 });
+      for (let i = 0; i < 6; i++) bl.push({ x: cx + cw * 0.96 + w * (1.5 + 3 * rnd()), r: w * (0.9 + 0.8 * rnd()), t: 0.04 + 0.25 * rnd(), dy: (rnd() - 0.5) * w * 0.6 });
+      L = { W, H, cx, cy, cw, ch, py, w, left, bl, span };
+      blobs.replaceChildren(); gloss.replaceChildren();
+      bl.forEach(() => { blobs.append(document.createElementNS('http://www.w3.org/2000/svg', 'ellipse')); gloss.append(document.createElementNS('http://www.w3.org/2000/svg', 'ellipse')); });
     };
-    addEventListener('resize', drawPour);
+    const render = p => {
+      if (!L) layout();
+      const { W, H, cx, cy, cw, ch, py, w, bl } = L, f = Math.round(clamp(p / 0.4) * (N - 1)); show(f);
+      const lip = LIPS[Math.min(cur, LIPS.length - 1)], lx = cx + lip[0] * cw, ly = cy + lip[1] * ch;
+      const fall = ss(p, 0.3, 0.42), landed = p > 0.4, flow = ss(p, 0.3, 0.5);
+      // stream: straight down from the rim, thick at the top, narrowing, a slow wobble in the width
+      const y1 = ly + (py - ly) * fall; let d = '';
+      if (fall > 0.01) {
+        const n = 18, l = [], r = [];
+        for (let i = 0; i <= n; i++) { const k = i / n, y = ly - 4 + (y1 - ly + 4) * k, hw = w * 0.5 * (1.1 - 0.4 * k) * (0.92 + 0.08 * Math.sin(k * 11 + p * 6)) * (0.35 + 0.65 * flow), wob = Math.sin(k * 7 + 2) * w * 0.05; l.push([lx + wob - hw, y]); r.push([lx + wob + hw, y]); }
+        d = 'M' + l.map(q => q.join(',')).join(' L') + ' L' + r.reverse().map(q => q.join(',')).join(' L') + 'Z';
+      }
+      stream.setAttribute('d', d);
+      // pool: blobs born over time, growing, squashed flat on the counter
+      const g = clamp((p - 0.42) / 0.58);
+      [...blobs.children].forEach((e, i) => { const b = bl[i], k = ss(g, b.t, b.t + 0.22), rx = b.r * k * (1 + 0.08 * Math.sin(i)), ry = rx * (b.tall ? 0.5 : 0.4);
+        e.setAttribute('cx', b.x.toFixed(1)); e.setAttribute('cy', (py + b.dy * 0.3).toFixed(1)); e.setAttribute('rx', rx.toFixed(1)); e.setAttribute('ry', ry.toFixed(1));
+        const h = gloss.children[i]; h.setAttribute('cx', (b.x - rx * 0.18).toFixed(1)); h.setAttribute('cy', (py + b.dy * 0.3 - ry * 0.42).toFixed(1)); h.setAttribute('rx', (rx * 0.55).toFixed(1)); h.setAttribute('ry', (ry * 0.35).toFixed(1)); });
+      // the pool's shadow on the counter
+      const sw = (L.span * Math.pow(g, 0.9) + w * 3), sx = cx + cw * 0.96 - sw * 0.5 + w * 2;
+      shadow.setAttribute('cx', sx.toFixed(1)); shadow.setAttribute('cy', (py + w * 0.35).toFixed(1)); shadow.setAttribute('rx', (sw * 0.55).toFixed(1)); shadow.setAttribute('ry', (w * 1.2 + sw * 0.03).toFixed(1)); shadow.style.opacity = landed ? '' : '0';
+      // splash: three drops kick up when the stream first lands
+      const sp = clamp((p - 0.4) / 0.14), up = Math.sin(sp * Math.PI);
+      [...splash.children].forEach((e, i) => { const dx = (i - 1) * w * 1.6 * sp, r = w * 0.22 * (1 - 0.5 * sp); e.setAttribute('cx', (lx + dx).toFixed(1)); e.setAttribute('cy', (py - up * w * (2 + i * 0.6)).toFixed(1)); e.setAttribute('r', r.toFixed(1)); e.style.opacity = sp > 0 && sp < 1 ? '' : '0'; });
+    };
+    if (reduce || slow || !('IntersectionObserver' in window)) {
+      for (let i = 0; i < N; i++) ready[i] = true;
+      cup.src = url(N - 1); cur = N - 1;
+      const done = () => { layout(); render(1); };
+      cup.complete ? done() : cup.addEventListener('load', done, { once: true });
+      addEventListener('resize', () => { L = null; done(); });
+    } else {
+      pour.classList.add('scrub');
+      cup.src = url(0);
+      const near = new IntersectionObserver(es => {
+        if (!es.some(e => e.isIntersecting)) return; near.disconnect();
+        for (let i = 1; i < N; i++) { const im = new Image(); im.src = url(i); (im.decode ? im.decode() : Promise.resolve()).then(() => { ready[i] = true; drawPour(); }, () => {}); }
+      }, { rootMargin: '900px 0px' });
+      afterLoad(() => near.observe(pour));
+      drawPour = () => {
+        const r = pour.getBoundingClientRect(), vh = innerHeight, run = r.height - (vh - 60) + vh * 0.35;
+        render(clamp((vh * 0.35 - r.top) / run));
+      };
+      addEventListener('resize', () => { L = null; drawPour(); });
+      cup.complete ? drawPour() : cup.addEventListener('load', drawPour, { once: true });
+    }
   }
 
   /* ---------- scroll motion: hero parallax, photos drifting inside their tiles ---------- */
